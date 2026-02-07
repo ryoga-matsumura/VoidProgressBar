@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>虚無の進捗バー</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rer="icon" th:href="@{/favicon.ico}">
+  <style>
+    body { background-color: #f8f9fa; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    .log-container {
+        background-color: #1e1e1e;
+        color: #00ff00;
+        font-family: 'Courier New', monospace;favicon.ico
+        height: 300px;
+        overflow-y: scroll;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: inset 0 0 10px #000;
+    }
+  </style>
+</head>
+<body class="container py-5">
+
+<div class="text-center mb-5">
+  <h1 class="display-4 fw-bold">⏳ 虚無の進捗バー</h1>
+  <p class="lead text-muted">高度な技術で「何もしない」を実行中...</p>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body text-center">
+    <div class="progress mb-4" style="height: 30px;">
+      <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+           role="progressbar" style="width: 0%">0%</div>
+    </div>
+
+    <button id="startBtn" class="btn btn-primary btn-lg px-5" onclick="startVoid()">
+      🚀 処理を開始する
+    </button>
+  </div>
+</div>
+
+<div class="log-container shadow" id="logArea">
+  <div>[SYSTEM] Ready...</div>
+</div>
+
+<script>
+  function startVoid() {
+      const btn = document.getElementById('startBtn');
+      const progressBar = document.getElementById('progressBar');
+      const logArea = document.getElementById('logArea');
+
+      // 1. ボタンを無効化（連打防止）
+      btn.disabled = true;
+      btn.innerText = "実行中...";
+      progressBar.style.width = '0%';
+      progressBar.innerText = '0%';
+      progressBar.classList.remove('bg-success');
+      progressBar.classList.add('bg-info');
+
+      // 2. サーバーの「VoidController」に接続！
+      // ここが連動のキモです
+      const eventSource = new EventSource('/api/void-start');
+
+      // 3. データが届くたびに動く処理
+      eventSource.onmessage = function(event) {
+          const data = JSON.parse(event.data);
+
+          // 進捗バー更新
+          progressBar.style.width = data.percent + '%';
+          progressBar.innerText = data.percent + '%';
+
+          // ログがあれば表示
+          if (data.message) {
+              const logLine = document.createElement('div');
+              logLine.innerText = `> ${data.message}`;
+              logArea.appendChild(logLine);
+              logArea.scrollTop = logArea.scrollHeight; // 自動スクロール
+          }
+
+          // 完了時の処理
+          if (data.percent >= 100) {
+              eventSource.close(); // 通信切断
+              btn.disabled = false;
+              btn.innerText = "もう一度やる";
+              progressBar.classList.remove('bg-info');
+              progressBar.classList.add('bg-success'); // 緑色にする
+
+              const endLog = document.createElement('div');
+              endLog.innerText = `[SYSTEM] Process Completed Successfully.`;
+              endLog.style.color = 'cyan';
+              logArea.appendChild(endLog);
+              logArea.scrollTop = logArea.scrollHeight;
+          }
+      };
+
+      // エラー時の処理
+      eventSource.onerror = function() {
+          eventSource.close();
+          btn.disabled = false;
+          btn.innerText = "エラー発生";
+          const errLog = document.createElement('div');
+          errLog.innerText = `[ERROR] Connection lost.`;
+          errLog.style.color = 'red';
+          logArea.appendChild(errLog);
+      };
+  }
+</script>
+
+</body>
+</html>
